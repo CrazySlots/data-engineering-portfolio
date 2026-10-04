@@ -62,7 +62,7 @@ Python, pandas, SciPy, Matplotlib, Jupyter
 - [x] Customer satisfaction analysis
 - [x] Temporal patterns and seasonality
 - [x] Geographic analysis (sales, satisfaction and freight by region)
-- [ ] Written conclusions for each section in the notebook
+- [x] Written conclusions for each section in the notebook
 
 ## How to run
 1. Clone the repository
