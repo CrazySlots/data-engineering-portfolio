@@ -117,5 +117,82 @@ FROM rank_category
 WHERE category_rank_state=1;
 
 
+-- Year-over-year growth: each month of 2018 vs the same month of 2017
+-- Period with complete data: Jan 2017 - Aug 2018
+WITH sales_by_year_month AS (
+    SELECT DATE_TRUNC('month', order_purchase_timestamp::timestamp)::date AS month,
+    COUNT(*) AS orders
+    FROM raw.orders
+    WHERE order_purchase_timestamp::timestamp >= '2017-01-01'
+      AND order_purchase_timestamp::timestamp <  '2018-09-01'
+    GROUP BY month
+), previous_table AS (
+SELECT
+    month,
+    orders,
+    LAG(orders,12) OVER (ORDER BY MONTH) AS previous_year_sales
+FROM sales_by_year_month
+)
+SELECT
+    month,
+    orders,
+    previous_year_sales,
+    ROUND(100.0 * (orders - previous_year_sales) / previous_year_sales, 1) AS year_growth_pct
+FROM previous_table
+WHERE month >= '2018-01-01'
+ORDER BY month;
 
+
+-- Cumulative orders by month for the top 3 states (SP, RJ, MG)
+WITH monthly_sales_state AS (
+    SELECT
+        c.customer_state AS state,
+        DATE_TRUNC('month',o.order_purchase_timestamp::timestamp)::date AS month,
+        o.order_id AS order_id
+    FROM raw.orders O
+    JOIN raw.customers C
+    ON o.customer_id = c.customer_id
+    WHERE c.customer_state IN ('SP', 'RJ', 'MG')
+      AND o.order_purchase_timestamp::timestamp >= '2017-01-01'
+      AND o.order_purchase_timestamp::timestamp <  '2018-09-01'
+    ), sales_per_state AS (
+        SELECT
+            state,
+            month,
+            COUNT(order_id) AS orders_total
+        FROM monthly_sales_state
+        GROUP BY state, month
+    )
+SELECT
+        state,
+        month,
+        orders_total,
+        SUM(orders_total) OVER (PARTITION BY state ORDER BY month) AS cumulative_orders
+FROM sales_per_state
+ORDER BY state,MONTH;
+
+
+-- Days between each customer's first and second purchase
+-- customer_unique_id identifies the person (customer_id changes on every order)
+WITH unique_customers_orders AS (
+    SELECT
+        c.customer_unique_id AS unique_id,
+        o.order_id AS order_id,
+        o.order_purchase_timestamp::date AS purchase_day
+
+    FROM raw.orders o
+    JOIN raw.customers c
+    ON o.customer_id = c.customer_id
+), days_diff_between_purchase AS (
+SELECT
+    unique_id,
+    order_id,
+    purchase_day - (LAG(purchase_day) OVER (PARTITION BY unique_id ORDER BY purchase_day)) AS dates_between_purchase,
+    ROW_NUMBER() OVER (PARTITION BY unique_id ORDER BY purchase_day) AS order_number
+FROM unique_customers_orders
+)
+SELECT *
+FROM days_diff_between_purchase
+WHERE order_number = 2
+ORDER BY unique_id;
 

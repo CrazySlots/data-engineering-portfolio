@@ -12,7 +12,7 @@ WITH item_count as (
 	group by order_id
 )
 
-select ROUND(AVG(count),2) AS avg_items_per_order
+select ROUND(AVG(items),2) AS avg_items_per_order
 from ITEM_COUNT;
 
 
